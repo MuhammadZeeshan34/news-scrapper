@@ -1,10 +1,7 @@
 from abc import ABCMeta,abstractmethod
 import requests, re
 from bs4 import BeautifulSoup
-import pdb
-from urllib3.exceptions import MaxRetryError
 import re
-import nltk
 import os
 from nltk.stem.snowball import SnowballStemmer
 
@@ -29,42 +26,50 @@ class CrawlerSpider(object):
 
 class ReutersCrawlerSpider(CrawlerSpider):
 
-    def __init__(self, language = "English", start_page = 1, page_size = 10):
+    def __init__(self, language = "english", start_page = 1, page_size = 10):
         self.domain_url = 'http://www.reuters.com'
         self.language = language
         self.business_news_url = os.path.join(self.domain_url,"news","archive","businessNews")
         self.starts_url = os.path.join(self.business_news_url,"?page=1&pageSize=10&view=page")
         self.headers = {'User-agent' : 'Mozilla/11.0'}
         self.params = {'page' : start_page , 'pageSize' : page_size, 'view' : 'page'}
+        self.stemmer = SnowballStemmer(self.language)
 
 
 
 
-    def parse_page(self, country_name = None):
+    def parse_page(self, country_name = None, file_path = "/Users/zeeshannawaz/reuters_data.txt"):
         response = requests.get(self.starts_url,params=self.params, headers = self.headers)
         soup = BeautifulSoup(response.text, 'html.parser')
-        print(soup)
-        h3tags = soup.find_all('a',class_='nav-link-subsec')
-        for h3 in h3tags:
+       # print(soup)
+        tags = soup.find_all('div',class_='story-content')
+        #print(tags)
+        for tag in tags:
             if country_name:
-                if re.search(country_name,str(h3['href'])):
-                    print(h3)
+                if re.search(country_name,str(tag['href'])):
+                    print(tag)
             else:
-                print(h3)
-            #text = soup.get_text(separator=' ')
-            #text = re.sub("[^a-zA-Z]+", " ", text);
-            #print(text)
-
-
-
-
-
-
+                #print(tag.a['href'])
+                article_url = self.domain_url + tag.a['href']
+                #print(article_url)
+                for sub_response in requests.get(article_url):
+                    #print(sub_response)
+                    soup = BeautifulSoup(sub_response,'html.parser')
+                    text = soup.get_text(separator=' ')
+                    text = re.sub("[^a-zA-Z]+", " ", text)
+                    words = text.lower().split()
+                   # stopwords = nltk.corpus.stopwords.words('english')
+                   # words = [w for w in words if not w in stopwords]
+                    words = [w for w in words if len(w) > 1]
+                    words = [ self.stemmer.stem(w) for w in words ]
+                    text = ' '.join(words for words in words if words)
+                    with open(file_path,'a') as file:
+                        file.write(text)
 
 
 if __name__== "__main__":
     obj = ReutersCrawlerSpider()
-    obj.parse()
+    obj.parse_page()
 
 
 
