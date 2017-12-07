@@ -4,6 +4,8 @@ from bs4 import BeautifulSoup
 import re
 import os
 from nltk.stem.snowball import SnowballStemmer
+from embeddings.word2vec import word2vec_wrapper
+
 
 
 class CrawlerSpider(object):
@@ -35,6 +37,7 @@ class ReutersCrawlerSpider(CrawlerSpider):
         self.stemmer = SnowballStemmer(self.language)
         self.num_of_pages = num_of_pages
         self.num_of_news_per_page = num_of_news_per_page
+        self.sequences = []
 
 
 
@@ -69,13 +72,16 @@ class ReutersCrawlerSpider(CrawlerSpider):
                         text = ' '.join(words for words in words if words)
                         if len(text) > 20: # To get rid of nousy data
                             with open(file_path,'a') as file:
+                                self.sequences.append(text)
                                 file.write(text)
 
 
 if __name__== "__main__":
-    obj = ReutersCrawlerSpider(num_of_news_per_page = 10, num_of_pages = 10)
+    obj = ReutersCrawlerSpider(num_of_news_per_page = 10, num_of_pages = 2)
     obj.parse_page()
-
+    w2v_obj = word2vec_wrapper(sequences=obj.sequences)
+    w2v_obj.transform(epochs=50)
+    print(w2v_obj.similarity(obj.stemmer.stem("stock".lower()),obj.stemmer.stem("Trump".lower())))
 
 
 
